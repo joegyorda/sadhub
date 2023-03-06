@@ -1,0 +1,72 @@
+---
+title: "Joe_GEEEeeeeeeeee"
+author: "Joe Gyorda"
+date: "2023-03-05"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(geepack)
+library(sandwich)
+library(pROC)
+
+setwd('/users/joegyorda/Desktop/QBS_121/sadhub/')
+
+# demographic and depression info
+depressed_data = read.csv('b_depressed.csv')
+depressed_data_complete = depressed_data[complete.cases(depressed_data),] # removes 20 NAs
+```
+
+```{r}
+# variables from step/lasso identified as important are 
+# Ville ID, Age, Education Level, Total Members, no lasting function
+
+# depression GEE model with exchangeable correlation structure
+gee.dep1 = geeglm(depressed~Age+education_level+total_members+no_lasting_investmen,
+                  family=binomial, data=depressed_data_complete, 
+                  id=Ville_id, corst="exchangeable")
+
+# depression GEE model with independence correlation structure
+gee.dep2 = geeglm(depressed~Age+education_level+total_members+no_lasting_investmen,
+                  id=Ville_id, family=binomial, data=depressed_data_complete, 
+                  corst="independence")
+
+summary(gee.dep1)$coefficients
+summary(gee.dep2)$coefficients
+
+# exponentiate coefficients for interpretation of odds ratio  
+exp(summary(gee.dep1)$coefficients[,1])
+exp(summary(gee.dep1)$coefficients[,2])
+```
+
+```{r ROC for GEE 1}
+
+# Obtain the predicted probabilities of the outcome variable
+predicted_probs <- predict(gee.dep1, type = "response")
+
+# Create the ROC curve
+roc_curve <- roc(depressed ~ predicted_probs, data = depressed_data_complete)
+
+# Plot the ROC curve
+plot(roc_curve, main = "ROC Curve for GEE Model", col = "blue")
+coords <- coords(roc_curve, "best", ret = c("threshold", "specificity", "sensitivity"))
+text(coords$threshold, coords$sensitivity, labels = paste0("AUC = ", round(auc(roc_curve),2)), pos = 4)
+```
+
+```{r ROC for GEE 2}
+# Obtain the predicted probabilities of the outcome variable
+predicted_probs <- predict(gee.dep2, type = "response")
+
+# Create the ROC curve
+roc_curve <- roc(depressed ~ predicted_probs, data = depressed_data_complete)
+
+# Plot the ROC curve
+plot(roc_curve, main = "ROC Curve for GEE Model", col = "blue")
+coords <- coords(roc_curve, "best", ret = c("threshold", "specificity", "sensitivity"))
+text(coords$threshold, coords$sensitivity, labels = paste0("AUC = ", round(auc(roc_curve),2)), pos = 4)
+```
+
